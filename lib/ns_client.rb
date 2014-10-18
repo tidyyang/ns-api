@@ -48,6 +48,7 @@ class NSClient
     @client = HTTPClient.new
     @client.set_auth("http://webservices.ns.nl", username, password)
     @prices_url = PricesUrl.new("http://webservices.ns.nl/ns-api-prijzen-v2")
+    @trip_url = TripUrl.new("http://webservices.ns.nl/ns-api-treinplanner")
     @last_received_raw_xml = ""
     @last_received_corrected_xml = ""
   end
@@ -64,6 +65,47 @@ class NSClient
     response_xml = get_xml(disruption_url(query))
     raise_error_when_response_is_error(response_xml)
     parse_disruptions(response_xml)
+  end
+
+  def trips (opts = {fromStation: nil, toStation: nil, via: nil, date: nil})
+    raise MissingParameter, "from and to station is required" if (opts[:fromStation] == nil && opts[:toStation] == nil)
+    raise MissingParameter, "from station is required" unless opts[:fromStation]
+    raise MissingParameter, "to station is required" unless opts[:toStation]
+    response_xml = get_xml(@trip_url.url(opts))
+    response_xml
+    raise_error_when_response_is_error(response_xml)
+    response_xml
+    parse_trips(response_xml)
+  end
+
+  def parse_trips(response_xml)
+    trips_response = TripsResponse.new
+    trips =[]
+    routes =[]
+
+    (response_xml/'/ReisMogelijkheden/ReisMogelijkheid').each do |trip_xml|
+      trip = Trip.new
+      trip_stops = []
+
+      (trip_xml/'ReisDeel').each do |reisdeel_xml|
+        reisdeel = ReisDeel.new
+        reisdeel.soort = reisdeel_xml.attr("reisSoort")
+        deel_stops = []
+        deel_stops = (reisdeel_xml/'ReisStop').collect {|s| s.xpath("Naam").text;}
+        if not deel_stops.blank?
+          reisdeel.stops = deel_stops
+          trip_stops |= deel_stops
+        end
+        trip.reisdeels << reisdeel
+      end
+      trip.stops = trip_stops
+      routes << trip_stops
+
+      trips << trip
+    end
+    trips_response.trips = trips
+    trips_response.routes = routes.uniq
+    trips_response
   end
 
   def prices (opts = {from: nil, to: nil, via: nil, date: nil})
@@ -182,6 +224,38 @@ class NSClient
   def disruption_url(query)
     return "http://webservices.ns.nl/ns-api-storingen?station=#{query}" if query
     "http://webservices.ns.nl/ns-api-storingen?actual=true"
+  end
+
+  class TripsResponse
+    # Response --> Trips --> ReisDeels
+    # @stops 来自ReisDeels 中包含最多stops 的deel
+    attr_accessor :trips, :routes
+
+    def initialize
+      @trips = []
+      @routes = []
+    end
+
+    def check
+      self.trips.each {|t| puts t.inspect; puts "aaaaa";}
+    end
+  end
+
+  class Trip
+    attr_accessor :reisdeels, :stops
+
+    def initialize
+      @stops = []
+      @reisdeels = []
+    end
+  end
+
+  class ReisDeel
+    attr_accessor :soort, :stops
+
+    def initialize
+      @stops = []
+    end
   end
 
   class PricesResponse
