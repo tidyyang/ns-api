@@ -72,9 +72,7 @@ class NSClient
     raise MissingParameter, "from station is required" unless opts[:fromStation]
     raise MissingParameter, "to station is required" unless opts[:toStation]
     response_xml = get_xml(@trip_url.url(opts))
-    response_xml
     raise_error_when_response_is_error(response_xml)
-    response_xml
     parse_trips(response_xml)
   end
 
