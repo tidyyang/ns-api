@@ -47,7 +47,7 @@ class NSClient
   def initialize(username, password)
     @client = HTTPClient.new
     @client.set_auth("http://webservices.ns.nl", username, password)
-    @prices_url = PricesUrl.new("http://webservices.ns.nl/ns-api-prijzen-v2")
+    @prices_url = PricesUrl.new("http://webservices.ns.nl/ns-api-prijzen-v3")
     @trip_url = TripUrl.new("http://webservices.ns.nl/ns-api-treinplanner")
     @last_received_raw_xml = ""
     @last_received_corrected_xml = ""
@@ -116,24 +116,27 @@ class NSClient
   end
 
   def parse_prices(response_xml)
+    enkele_price = response_xml.xpath('//ReisType[@name="Enkele reis"]/ReisKlasse[@klasse="2"]/Korting/Kortingsprijs[@name="vol tarief"]').attr("prijs").value
+    retour_price = response_xml.xpath('//ReisType[@name="Retour"]/ReisKlasse[@klasse="2"]/Korting/Kortingsprijs[@name="vol tarief"]').attr("prijs").value
+
     prices_response = PricesResponse.new
-    (response_xml/'/Producten').each do |products|
-      prices_response.tariff_units = (products/'./Tariefeenheden').text.to_i
+ 
+    name = "Enkele reis"
+    price = ProductPrice.new
+    price.type = name
+    price.train_class = "2"
+    price.amount = enkele_price
+    
+    prices_response.tariffs[name] = price
 
-      (products/'Product').each do |product|
-        prices = []
-        (product/'Prijs').each do |price_element|
-          product_price = ProductPrice.new
-          product_price.type = price_element.attr("korting")
-          product_price.train_class = price_element.attr("klasse")
-          product_price.amount = price_element.text.gsub(",", ".").to_f
-          prices << product_price
-        end
-        name = product.attr('naam')
-        prices_response.products[name] = prices
-      end
+    name = "Retour"
+    price = ProductPrice.new
+    price.type = name
+    price.train_class = "2"
+    price.amount = retour_price
+    
+    prices_response.tariffs[name] = price
 
-    end
     prices_response
   end
 
@@ -257,21 +260,11 @@ class NSClient
   end
 
   class PricesResponse
-    attr_accessor :tariff_units, :products
+    attr_accessor :tariffs
 
     def initialize
-      @products = {}
-      @tariff_units = 0
+      @tariffs= {}
     end
-
-    def enkele_reis
-      products["Enkele reis"]
-    end
-
-    def dagretour
-      products["Dagretour"]
-    end
-
   end
 
   class ProductPrice
