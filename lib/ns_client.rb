@@ -67,7 +67,7 @@ class NSClient
     parse_disruptions(response_xml)
   end
 
-  def trips (opts = {fromStation: nil, toStation: nil, via: nil, date: nil})
+  def trips (opts = {fromStation: nil, toStation: nil, via: nil, dateTime: nil})
     raise MissingParameter, "from and to station is required" if (opts[:fromStation] == nil && opts[:toStation] == nil)
     raise MissingParameter, "from station is required" unless opts[:fromStation]
     raise MissingParameter, "to station is required" unless opts[:toStation]
@@ -81,8 +81,11 @@ class NSClient
     trips =[]
     routes =[]
 
+
     (response_xml/'/ReisMogelijkheden/ReisMogelijkheid').each do |trip_xml|
       trip = Trip.new
+      trip.dep_time = (trip_xml/'GeplandeVertrekTijd').first.text
+
       trip_stops = []
 
       (trip_xml/'ReisDeel').each do |reisdeel_xml|
@@ -243,11 +246,12 @@ class NSClient
   end
 
   class Trip
-    attr_accessor :reisdeels, :stops
+    attr_accessor :reisdeels, :stops, :dep_time
 
     def initialize
       @stops = []
       @reisdeels = []
+      @dep_time= ""
     end
   end
 

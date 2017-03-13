@@ -5,8 +5,8 @@ class TripUrl
     @url = url
   end
 
-  def url (opts = {date: nil, fromStation: "", toStation: "" })
-    opts[:date] = opts[:date].strftime("%d%m%Y") if opts[:date]
+  def url (opts = {dateTime: nil, fromStation: "", toStation: ""})
+    opts[:dateTime] = opts[:dateTime].strftime("%Y-%m-%dT%H:%M") if opts[:dateTime]
     uri = URI.escape(opts.collect{|k,v| "#{k}=#{v}"}.join('&'))
     "#{@url}?#{uri}"
   end
